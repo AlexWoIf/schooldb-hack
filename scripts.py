@@ -1,6 +1,8 @@
 import random
 from datacenter.models import (Schoolkid, Lesson, Commendation,
                                Mark, Chastisement)
+from django.core.exceptions import (MultipleObjectsReturned,
+                                    ObjectDoesNotExist)
 
 
 COMMENDATION_TEMPLATES = [
@@ -36,19 +38,38 @@ COMMENDATION_TEMPLATES = [
     'Теперь у тебя точно все получится!',]
 
 
+def get_schoolkid(name):
+    try:
+        schoolkid = Schoolkid.objects.get(full_name__contains=name)
+        return schoolkid
+    except ObjectDoesNotExist:
+        print("Ученик не найден. Проверьте правильность ввода.")
+    except MultipleObjectsReturned:
+        print("Найдено больше одной записи удовлетворяющей условию"
+              " поиска. Попробуйте ввести больше символов "
+              "(например добавьте отчество).")
+
+
 def create_commendation(name, subject):
-    schoolkid = Schoolkid.objects.get(full_name__contains=name)
-    lesson = Lesson.objects.filter(
-        year_of_study=schoolkid.year_of_study,
-        group_letter=schoolkid.group_letter,
-        subject__title__contains=subject
-    ).order_by('-date').first()
-    Commendation.objects.create(
-        text=random.choice(COMMENDATION_TEMPLATES),
-        created=lesson.date,
-        schoolkid=schoolkid,
-        subject=lesson.subject,
-        teacher=lesson.teacher,)
+    schoolkid = get_schoolkid(name)
+    if schoolkid:
+        lesson = Lesson.objects.filter(
+            year_of_study=schoolkid.year_of_study,
+            group_letter=schoolkid.group_letter,
+            subject__title__contains=subject
+        ).order_by('-date').first()
+    else:
+        return
+    if (lesson):
+        Commendation.objects.create(
+            text=random.choice(COMMENDATION_TEMPLATES),
+            created=lesson.date,
+            schoolkid=schoolkid,
+            subject=lesson.subject,
+            teacher=lesson.teacher,)
+    else:
+        print("Такой предмет не найден. Уточните название и "
+              "попробуйте еще раз")
 
 
 def fix_marks(schoolkid):
