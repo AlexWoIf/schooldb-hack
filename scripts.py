@@ -1,8 +1,6 @@
 import random
 from datacenter.models import (Schoolkid, Lesson, Commendation,
                                Mark, Chastisement)
-from django.core.exceptions import (MultipleObjectsReturned,
-                                    ObjectDoesNotExist)
 
 
 COMMENDATION_TEMPLATES = [
@@ -42,41 +40,39 @@ def get_schoolkid(name):
     try:
         schoolkid = Schoolkid.objects.get(full_name__contains=name)
         return schoolkid
-    except ObjectDoesNotExist:
+    except Schoolkid.DoesNotExist:
         print("Ученик не найден. Проверьте правильность ввода.")
-    except MultipleObjectsReturned:
-        print("Найдено больше одной записи удовлетворяющей условию"
-              " поиска. Попробуйте ввести больше символов "
-              "(например добавьте отчество).")
+    except Schoolkid.MultipleObjectsReturned:
+        print("Найдено больше одной записи удовлетворяющей условию "
+              "поиска. Попробуйте ввести больше символов (например, "
+              "добавьте отчество).")
 
 
 def create_commendation(name, subject):
     schoolkid = get_schoolkid(name)
-    if schoolkid:
-        lesson = Lesson.objects.filter(
-            year_of_study=schoolkid.year_of_study,
-            group_letter=schoolkid.group_letter,
-            subject__title__contains=subject
-        ).order_by('-date').first()
-    else:
+    if not schoolkid:
         return
-    if (lesson):
-        Commendation.objects.create(
-            text=random.choice(COMMENDATION_TEMPLATES),
-            created=lesson.date,
-            schoolkid=schoolkid,
-            subject=lesson.subject,
-            teacher=lesson.teacher,)
-    else:
+    lesson = Lesson.objects.filter(
+        year_of_study=schoolkid.year_of_study,
+        group_letter=schoolkid.group_letter,
+        subject__title__contains=subject
+    ).order_by('-date').first()
+    if not lesson:
         print("Такой предмет не найден. Уточните название и "
               "попробуйте еще раз")
+        return
+    Commendation.objects.create(
+        text=random.choice(COMMENDATION_TEMPLATES),
+        created=lesson.date,
+        schoolkid=schoolkid,
+        subject=lesson.subject,
+        teacher=lesson.teacher,)
 
 
 def fix_marks(schoolkid):
-    marks = Mark.objects.filter(schoolkid=schoolkid, points__in=[2, 3,])
-    for mark in marks:
-        mark.points = 5
-        mark.save()
+    Mark.objects.filter(
+        schoolkid=schoolkid, 
+        points__in=[2, 3,]).update(points=5)
 
 
 def remove_chastisements(schoolkid):
